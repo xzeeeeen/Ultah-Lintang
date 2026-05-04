@@ -173,7 +173,7 @@ export default function App() {
 
   // Asset Paths
   const musicUrl = "/lintang_song.mp3";
-  const photoUrl = "/lintang_star.png.png";
+  const photoUrl = "/lintang_star.png";
 
   const triggerConfetti = () => {
     const end = Date.now() + 6 * 1000;
@@ -238,17 +238,22 @@ export default function App() {
 
       {/* Floating Star Cursor */}
       <motion.div 
-        className="star-cursor pointer-events-none hidden md:block fixed top-0 left-0 z-[9999]"
-        style={{ pointerEvents: 'none', width: '6px', height: '6px' }}
+        className="star-cursor pointer-events-none hidden md:block fixed top-0 left-0 z-[10000]"
+        style={{ 
+          width: '6px', 
+          height: '6px', 
+          mixBlendMode: 'difference',
+          pointerEvents: 'none'
+        }}
         animate={{ 
-          x: mousePos.x - 4, 
-          y: mousePos.y - 4,
-          scale: [1, 1.2, 1],
-          opacity: [0.5, 1, 0.5]
+          x: mousePos.x - 3, 
+          y: mousePos.y - 3,
+          scale: [1, 1.3, 1],
+          opacity: [0.6, 1, 0.6]
         }}
         transition={{ 
-          x: { type: "spring", damping: 30, stiffness: 200, mass: 0.5 },
-          y: { type: "spring", damping: 30, stiffness: 200, mass: 0.5 },
+          x: { type: "spring", damping: 35, stiffness: 250, mass: 0.5 },
+          y: { type: "spring", damping: 35, stiffness: 250, mass: 0.5 },
           scale: { duration: 1.5, repeat: Infinity, ease: "easeInOut" },
           opacity: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
         }}
@@ -412,7 +417,7 @@ export default function App() {
                              <img 
                                 src={photoUrl} 
                                 onError={(e) => {
-                                  (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1549490349-8643362247b5?auto=format&fit=crop&q=80&w=800";
+                                  (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?auto=format&fit=crop&q=80&w=1000"; // Starry night fallback
                                 }}
                                 className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-[4000ms] scale-110 hover:scale-100"
                                 alt="Lintang Star"
