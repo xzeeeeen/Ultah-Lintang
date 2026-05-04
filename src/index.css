@@ -1,0 +1,68 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Playfair+Display:ital,wght@1,400;1,700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Instrument Serif", serif;
+  --font-italic: "Playfair Display", serif;
+  
+  --color-noir-dark: #121212;
+  --color-silk-cream: #F8F5F2;
+  --color-muted-gold: #B4975A;
+  --color-faded-rose: #D4A39A;
+}
+
+@layer base {
+  body {
+    @apply bg-silk-cream text-noir-dark font-sans selection:bg-muted-gold selection:text-white overflow-hidden;
+  }
+}
+
+/* Grain Overlay for Film Aesthetic */
+.grain-overlay {
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background-image: url('https://grainy-gradients.vercel.app/noise.svg');
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 100;
+  animation: noise 0.2s infinite;
+}
+
+@keyframes noise {
+  0% { transform: translate(0,0) }
+  10% { transform: translate(-5%,-5%) }
+  20% { transform: translate(-10%,5%) }
+  30% { transform: translate(5%,-10%) }
+  40% { transform: translate(-5%,15%) }
+  50% { transform: translate(-10%,5%) }
+  60% { transform: translate(15%,0) }
+  70% { transform: translate(0,10%) }
+  80% { transform: translate(-15%,0) }
+  90% { transform: translate(10%,5%) }
+  100% { transform: translate(5%,0) }
+}
+
+.text-reveal {
+  background: linear-gradient(to right, #121212 50%, #B4975A 50%);
+  background-size: 200% 100%;
+  background-position: 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  transition: background-position 2s ease-in-out;
+}
+
+.card-poetic {
+  @apply relative p-12 md:p-20 bg-white/30 backdrop-blur-3xl border border-white/40 rounded-[3rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)];
+}
+
+.btn-ethereal {
+  @apply px-12 py-5 bg-noir-dark text-white rounded-full font-medium tracking-[0.2em] uppercase text-[10px] hover:bg-muted-gold transition-all duration-1000 shadow-2xl hover:shadow-muted-gold/20 flex items-center gap-4 active:scale-95 cursor-pointer;
+}
+
+.vignette {
+  box-shadow: inset 0 0 150px rgba(0,0,0,0.1);
+}
