@@ -15,9 +15,69 @@ import {
   HandHeart,
   MousePointer2,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  Flame,
+  Send,
+  MessageCircle
 } from 'lucide-react';
 import { cn } from './lib/utils';
+
+// Firebase Imports
+import { initializeApp } from 'firebase/app';
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  serverTimestamp,
+  doc,
+  getDocFromServer
+} from 'firebase/firestore';
+import firebaseConfig from '../firebase-applet-config.json';
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+// Test Connection
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+  } catch (error) {
+    if(error instanceof Error && error.message.includes('the client is offline')) {
+      console.error("Please check your Firebase configuration.");
+    }
+  }
+}
+testConnection();
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+interface Prayer {
+  id?: string;
+  name: string;
+  content: string;
+  createdAt: any;
+}
 
 // THE DEEP STORY OF LINTANG (Beranjak Dewasa Edition)
 const STORY_PAGES = [
@@ -62,10 +122,10 @@ const STORY_PAGES = [
   },
   {
     id: 5,
-    type: "wishes",
-    title: "Harapan",
-    content: "semoga tumbuhmu nggak bikin kamu layu.",
-    subContent: "semoga makin dewasa nggak bikin kamu lupa caranya ketawa receh di server ini. semoga hal-hal baik selalu nemuin jalan buat pulang ke kamu. 🐻"
+    type: "candle",
+    title: "The Ritual",
+    content: "sebelum kita tutup hari ini...",
+    subContent: "nyalakan lilin ini, tarik napas dalam-dalam, dan titipkan satu doa untuk satu tahun ke depan."
   },
   {
     id: 6,
@@ -83,29 +143,54 @@ export default function App() {
   const [trollPos, setTrollPos] = useState({ x: 0, y: 0 });
   const [trollCount, setTrollCount] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [isCandleLit, setIsCandleLit] = useState(false);
+  const [wishes, setWishes] = useState<Prayer[]>([]);
+  const [newName, setNewName] = useState('');
+  const [newWish, setNewWish] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  useEffect(() => {
+    // Fetch Wishes
+    const q = query(collection(db, 'wishes'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Prayer[];
+      setWishes(data);
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'wishes'));
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
   // Asset Paths
   const musicUrl = "/lintang_song.mp3";
-  const photoUrl = "/lintang_star.png";
+  const photoUrl = "/lintang_star.png.png";
 
   const triggerConfetti = () => {
-    const end = Date.now() + 5 * 1000;
-    const colors = ['#C2A378', '#A37C74', '#ffffff'];
+    const end = Date.now() + 6 * 1000;
+    const colors = ['#C2A378', '#A37C74', '#ffffff', '#EBE8E4'];
 
     (function frame() {
       confetti({
-        particleCount: 3,
+        particleCount: 2,
         angle: 60,
-        spread: 55,
+        spread: 45,
         origin: { x: 0, y: 0.8 },
         colors: colors
       });
       confetti({
-        particleCount: 3,
+        particleCount: 2,
         angle: 120,
-        spread: 55,
+        spread: 45,
         origin: { x: 1, y: 0.8 },
         colors: colors
       });
@@ -120,7 +205,7 @@ export default function App() {
     setHasStarted(true);
     setIsMusicPlaying(true);
     if (audioRef.current) {
-      audioRef.current.volume = 0.5;
+      audioRef.current.volume = 0.4;
       audioRef.current.play().catch(e => console.log("Audio blocked", e));
     }
     setCurrentPage(0);
@@ -147,9 +232,45 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-canvas text-paper select-none">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-canvas text-paper select-none cursor-none">
       <div className="film-grain" />
       <div className="vignette-overlay" />
+
+      {/* Floating Star Cursor */}
+      <motion.div 
+        className="star-cursor pointer-events-none hidden md:block fixed top-0 left-0 z-[9999]"
+        style={{ pointerEvents: 'none', width: '6px', height: '6px' }}
+        animate={{ 
+          x: mousePos.x - 4, 
+          y: mousePos.y - 4,
+          scale: [1, 1.2, 1],
+          opacity: [0.5, 1, 0.5]
+        }}
+        transition={{ 
+          x: { type: "spring", damping: 30, stiffness: 200, mass: 0.5 },
+          y: { type: "spring", damping: 30, stiffness: 200, mass: 0.5 },
+          scale: { duration: 1.5, repeat: Infinity, ease: "easeInOut" },
+          opacity: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+        }}
+      />
+
+      {/* Background Particles */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {[...Array(15)].map((_, i) => (
+          <div 
+            key={i}
+            className="particle particle-animation"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              width: `${Math.random() * 3 + 1}px`,
+              height: `${Math.random() * 3 + 1}px`,
+              animationDelay: `${Math.random() * 15}s`,
+              animationDuration: `${10 + Math.random() * 10}s`
+            }}
+          />
+        ))}
+      </div>
       
       <audio ref={audioRef} src={musicUrl} loop />
 
@@ -169,7 +290,10 @@ export default function App() {
             />
           ))}
         </div>
-        <span>{isMusicPlaying ? 'Bernadya — Beranjak Dewasa' : 'Music Paused'}</span>
+        <div className="flex flex-col">
+          <span className="animate-pulse">{isMusicPlaying ? 'Bernadya — Beranjak Dewasa' : 'Music Paused'}</span>
+          <span className="text-[6px] opacity-50 tracking-normal mt-0.5 font-light">Now Playing from Local Asset</span>
+        </div>
       </motion.div>
 
       {/* Audio Toggle */}
@@ -271,7 +395,7 @@ export default function App() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 2.5 }}
-                      className="text-lg md:text-2xl font-light text-paper/40 leading-relaxed max-w-2xl border-l border-gold-dust/20 pl-10"
+                      className="text-lg md:text-2xl font-light text-paper/40 leading-relaxed max-w-2xl border-l border-gold-dust/20 pl-10 reveal-text"
                     >
                       {STORY_PAGES[currentPage].subContent}
                     </motion.p>
@@ -287,6 +411,9 @@ export default function App() {
                           <div className="overflow-hidden aspect-[3/4] w-full bg-canvas">
                              <img 
                                 src={photoUrl} 
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1549490349-8643362247b5?auto=format&fit=crop&q=80&w=800";
+                                }}
                                 className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-[4000ms] scale-110 hover:scale-100"
                                 alt="Lintang Star"
                                 referrerPolicy="no-referrer"
@@ -346,11 +473,91 @@ export default function App() {
                  </motion.div>
                )}
 
+               {/* Candle UI */}
+               {STORY_PAGES[currentPage].type === "candle" && (
+                 <div className="flex flex-col items-center py-10 space-y-12">
+                   <div className="relative group cursor-pointer" onClick={() => setIsCandleLit(true)}>
+                      {/* Candle Base */}
+                      <div className="w-16 h-32 bg-paper/10 border border-white/10 rounded-t-lg relative overflow-hidden">
+                        <div className="absolute bottom-0 w-full bg-gold-dust/20 h-full transition-all duration-[10000ms]" style={{ height: isCandleLit ? '20%' : '100%' }} />
+                      </div>
+                      {/* Flame */}
+                      <AnimatePresence>
+                        {isCandleLit && (
+                          <motion.div 
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="absolute -top-24 left-1/2 -translate-x-1/2"
+                          >
+                            {/* Glare */}
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 candle-glare blur-3xl opacity-50" />
+                            
+                            <div className="flame-animation w-8 h-14 bg-gradient-to-t from-orange-600 via-yellow-400 to-white rounded-full shadow-[0_0_40px_rgba(249,115,22,0.8)] relative z-10" />
+                            <div className="star-cursor pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 scale-[2]" />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                      {!isCandleLit && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                           <span className="text-[10px] uppercase tracking-[0.3em] font-black opacity-30 group-hover:opacity-100 transition-opacity">Klik untuk menyalakan</span>
+                        </div>
+                      )}
+                   </div>
+
+                   {isCandleLit && (
+                     <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="w-full max-w-md space-y-6"
+                     >
+                        <div className="flex flex-col gap-4">
+                           <input 
+                              type="text" 
+                              placeholder="Siapa namamu?" 
+                              value={newName}
+                              onChange={(e) => setNewName(e.target.value)}
+                              className="bg-transparent border-b border-white/10 pb-2 focus:border-gold-dust outline-none transition-colors text-paper placeholder:text-paper/20"
+                           />
+                           <textarea 
+                              placeholder="Tulis doamu di sini..." 
+                              value={newWish}
+                              onChange={(e) => setNewWish(e.target.value)}
+                              className="bg-transparent border-b border-white/10 pb-2 focus:border-gold-dust outline-none transition-colors text-paper placeholder:text-paper/20 h-24 resize-none"
+                           />
+                        </div>
+                        <button 
+                          disabled={isSubmitting || !newName || !newWish}
+                          onClick={async () => {
+                            setIsSubmitting(true);
+                            try {
+                              await addDoc(collection(db, 'wishes'), {
+                                name: newName,
+                                content: newWish,
+                                createdAt: serverTimestamp()
+                              });
+                              setNewName('');
+                              setNewWish('');
+                              handleNext();
+                            } catch (error) {
+                              handleFirestoreError(error, OperationType.WRITE, 'wishes');
+                            } finally {
+                              setIsSubmitting(false);
+                            }
+                          }}
+                          className="w-full btn-cinematic justify-center"
+                        >
+                          {isSubmitting ? 'Mengirim...' : 'Titipkan Doa'} <Send size={12} />
+                        </button>
+                     </motion.div>
+                   )}
+                 </div>
+               )}
+
                {/* Final UI */}
                {STORY_PAGES[currentPage].isFinal && (
                  <motion.div 
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 4 }}
-                    className="flex flex-col items-center gap-12 pt-24"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2 }}
+                    className="flex flex-col items-center gap-12 pt-12"
                  >
                     <div className="flex gap-12">
                        {[Heart, PartyPopper, Cake].map((Icon, idx) => (
@@ -372,15 +579,44 @@ export default function App() {
                        <motion.p 
                          initial={{ opacity: 0 }} 
                          animate={{ opacity: 0.3 }} 
-                         transition={{ delay: 5 }}
+                         transition={{ delay: 3 }}
                          className="text-[10px] tracking-[0.8em] uppercase text-center"
                        >
                          You are infinite.
                        </motion.p>
                     </div>
+
+                    {/* Wishes Wall */}
+                    <div className="w-full border-t border-white/5 pt-12 mt-12 overflow-hidden">
+                       <div className="flex items-center gap-4 mb-8 text-subtle">
+                          <MessageCircle size={14} />
+                          <span>Titipan Doa</span>
+                       </div>
+                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[400px] overflow-y-auto pr-4 scrollbar-hide">
+                          {wishes.map((wish, idx) => (
+                            <motion.div 
+                              key={wish.id || idx}
+                              initial={{ opacity: 0, scale: 0.9 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: idx * 0.1 }}
+                              className="p-6 bg-white/[0.02] border border-white/5 rounded-xl space-y-4"
+                            >
+                               <Quote size={16} className="text-gold-dust opacity-30" />
+                               <p className="text-sm font-light leading-relaxed italic">"{wish.content}"</p>
+                               <div className="flex justify-between items-center pt-4 border-t border-white/5">
+                                  <span className="text-[10px] font-bold text-gold-dust uppercase tracking-widest">{wish.name}</span>
+                                  <span className="text-[8px] opacity-20">{wish.createdAt?.toDate ? wish.createdAt.toDate().toLocaleDateString() : 'Baru saja'}</span>
+                               </div>
+                            </motion.div>
+                          ))}
+                          {wishes.length === 0 && (
+                            <p className="col-span-full text-center text-subtle italic py-10 opacity-30">Belum ada doa yang ditulis... Jadilah yang pertama?</p>
+                          )}
+                       </div>
+                    </div>
                     
                     <div className="flex flex-wrap justify-center gap-10 pt-10">
-                       <button onClick={() => { setCurrentPage(-1); setTrollCount(0); }} className="text-subtle hover:text-paper transition-all flex items-center gap-2">
+                       <button onClick={() => { setCurrentPage(-1); setTrollCount(0); setIsCandleLit(false); }} className="text-subtle hover:text-paper transition-all flex items-center gap-2">
                          <RefreshCw size={12} /> Dari awal lagi?
                        </button>
                        <button onClick={triggerConfetti} className="text-gold-dust border-b border-gold-dust/20 pb-1 text-[10px] uppercase font-black tracking-[0.3em] flex items-center gap-3">
